@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+    <head>
+        <%- include('../partials/header')  %>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    </head>
+    <body>
+        <div class='container '>
+            <div class='row my-5 mx-auto'>
+                <div class='col-sm-6 offset-sm-3'>
+                    <div class='card '>
+                        <div class='card-body'>
+                                <h2 class='card-title'>Recuperar Senha</h2>
+                                <hr /><br />
+                            <% if(success) { %>
+                                <div class='alert alert-success'>
+                                <%= success %>                    
+                                </div>
+                            <% } %>
+                            <% if(errors) { %>
+                                <div class='alert alert-danger'>
+                                <%= errors %>                    
+                                </div>
+                            <% } %>
+                            <p> Digite seu email para receber instruções de como reiniciar sua senha</p>
+
+                            <form action='/v1/api/usuarios/recuperar-senha' method='POST'>
+                            <div class = 'form-group'>
+                                <input 
+                                    type="email"
+                                    name="email"
+                                    class='form-control'
+                                    placeholder="Digite seu email"
+                                    />
+                            </div>
+                                <button class='btn btn-primary' type=""> Recuperar Senha</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>    
+            </div>
+        </div>
+    </body>
+</html>
