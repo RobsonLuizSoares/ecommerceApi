@@ -7,7 +7,8 @@ const Pedido = mongoose.model('Pedido')
 const Produto = mongoose.model('Produto')
 const Variacao = mongoose.model('Variacao')
 const RegistroPedido = mongoose.model('RegistroPedido')
-
+const EmailController = require('./EmailController')
+const QuantidadeValidation = require('./validacoes/quantidadeValidation')
 
 class PagamentoController {
 
@@ -95,9 +96,21 @@ class PagamentoController {
                 situacao: status
             })
             await registroPedido.save()
-            //Enviar email de aviso para o cliente - aviso de atualização de pagamento
+
+            const pedido = await Pedido.findById(pagamento.pedido).populate({ path: 'cliente', populate: 'usuario' })
+
+            EmailController.atualizarPedido({
+                usuario: pedido.cliente.usuario,
+                pedido,
+                tipo: 'pagamento',
+                status,
+                data: new Date()
+            })
 
             await pagamento.save()
+
+            if (status.toLowerCase().includes('Paga')) await QuantidadeValidation.atualizarQuantidade('confirmar_pedido', pedido)
+            else if (status.toLowerCase().includes('Cancelada')) await QuantidadeValidation.atualizarQuantidade('cancelar_pedido', pedido)
 
             return res.send({ pagamento })
         } catch (e) {
@@ -140,7 +153,19 @@ class PagamentoController {
                 })
                 pagamento.status = situacao.status
                 await pagamento.save()
+
                 await registroPedido.save()
+
+                const pedido = await Pedido.findById(pagamento.pedido).populate({ path: 'cliente', populate: 'usuario' })
+                EmailController.atualizarPedido({
+                    usuario: pedido.cliente.usuario,
+                    pedido,
+                    tipo: 'pagamento',
+                    status: situacao.status,
+                    data: new Date()
+                })
+                if (status.toLowerCase().includes('paga')) await QuantidadeValidation.atualizarQuantidade('confirmar_pedido', pedido)
+                else if (status.toLowerCase().includes('cancelada')) await QuantidadeValidation.atualizarQuantidade('cancelar_pedido', pedido)
             }
 
             return res.send({ success: true })

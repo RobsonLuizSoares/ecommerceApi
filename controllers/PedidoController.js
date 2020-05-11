@@ -1,5 +1,6 @@
 const mongoose = require('mongoose')
 
+const Usuario = mongoose.model('Usuario')
 const Pedido = mongoose.model('Pedido')
 const Produto = mongoose.model('Produto')
 const Variacao = mongoose.model('Variacao')
@@ -12,6 +13,8 @@ const { calcularFrete } = require('./integracoes/correios')
 
 const PagamentoValidation = require('./validacoes/pagamentoValidation')
 const EntregaValidation = require('./validacoes/entregaValidation')
+const QuantidadeValidation = require('./validacoes/quantidadeValidation')
+const EmailController = require('./EmailController')
 const CarrinhoValidation = require('./validacoes/carrinhoValidation')
 
 class PedidoController {
@@ -61,7 +64,12 @@ class PedidoController {
     //DELETE /admin/id removeAdmin
     async removeAdmin(req, res, next) {
         try {
-            const pedido = await Pedido.findOne({ loja: req.query.loja, _id: req.params.id })
+            const pedido = await Pedido.findOne({
+                loja: req.query.loja,
+                _id: req.params.id
+            })
+                .populate({ path: 'cliente', populate: 'usuario' })
+
             if (!pedido) return res.status(400).send({ error: 'Pedido não encontrado' })
             pedido.cancelado = true
             const registroPedido = new RegistroPedido({
@@ -70,10 +78,12 @@ class PedidoController {
                 situacao: 'pedido_cancelado'
             })
             await registroPedido.save()
-            //Registro de atividade = pedido cancelado
-            //Enviar email para cliente e Admin = pedido cancelado
+
+            EmailController.cancelarPedido({ usuario: pedido.cliente.usuario, pedido })
 
             await pedido.save()
+
+            await QuantidadeValidation.atualizarQuantidade('cancelar_pedido', pedido)
 
             return res.send({ cancelado: true })
         } catch (e) {
@@ -153,7 +163,8 @@ class PedidoController {
             if (!await CarrinhoValidation(carrinho)) return res.status(422).send({ error: 'Carrinho Inválido' })
 
             const cliente = await Cliente.findOne({ usuario: req.payload.id }).populate({ path: 'usuario', "select": "_id nome email" })
-
+            //CHECAR QUANTIDADE DISPONÍVEL EM ESTOQUE
+            if (!await QuantidadeValidation.validarQuantidadeDisponivel(carrinho)) return res.status(400).send({ error: 'Produto não tem quantidade disponível.' })
             //CHECAR OS DADOS DE ENTREGA
             if (!await EntregaValidation.checarValorPrazo(cliente.endereco.cep, carrinho, entrega)) return res.status(422).send({ error: 'Dados de Entrega Inválidos' })
 
@@ -195,6 +206,8 @@ class PedidoController {
             await novoPagamento.save()
             await novaEntrega.save()
 
+            await QuantidadeValidation.atualizarQuantidade('salvar_pedido', pedido)
+
             const registroPedido = new RegistroPedido({
                 pedido: pedido._id,
                 tipo: 'pedido',
@@ -202,7 +215,12 @@ class PedidoController {
             })
             await registroPedido.save()
 
-            //Notificar via email - cliente e admin - novo pedido
+            EmailController.enviarNovoPedido({ pedido, usuario: cliente.usuario })
+            const administradores = await Usuario.find({ permissao: 'admin', loja })
+            administradores.forEach((usuario) => {
+                EmailController.enviarNovoPedido({ pedido, usuario })
+            })
+
 
             return res.send({
                 pedido: Object.assign({}, pedido._doc, { entrega: novaEntrega, pagamento: novoPagamento, cliente })
@@ -227,10 +245,15 @@ class PedidoController {
                 situacao: 'pedido_cancelado'
             })
             await registroPedido.save()
-            //Registro de atividade = pedido cancelado
-            //Enviar email para Admin = pedido cancelado
+
+            const administradores = await Usuario.find({ permissao: 'admin', loja: pedido.loja })
+            administradores.forEach((usuario) => {
+                EmailController.cancelarPedido({ pedido, usuario })
+            })
 
             await pedido.save()
+
+            await QuantidadeValidation.atualizarQuantidade('cancelar_pedido', pedido)
 
             return res.send({ cancelado: true })
         } catch (e) {
