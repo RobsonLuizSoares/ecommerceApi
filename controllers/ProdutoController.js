@@ -49,21 +49,23 @@ class ProdutoController {
 
     //PUT /:id
     async update(req, res, next) {
-        const { titulo, descricao, categoria, disponibilidade, preco, promocao, sku } = req.body
+        const { titulo, descricao, categoria, fotos, disponibilidade, preco, promocao, sku } = req.body
         try {
             const produto = await Produto.findById(req.params.id)
             if (!produto) return res.status(400).send({ error: 'Produto não encontrado' })
             if (titulo) produto.titulo = titulo
             if (descricao) produto.descricao = descricao
             if (disponibilidade !== undefined) produto.disponibilidade = disponibilidade
+            if (fotos) produto.fotos = fotos
             if (preco) produto.preco = preco
             if (promocao) produto.promocao = promocao
             if (sku) produto.sku = sku
             if (categoria && categoria.toString() !== produto.categoria.toString()) {
                 const oldCategoria = await Categoria.findById(produto.categoria)
                 const newCategoria = await Categoria.findById(categoria)
+
                 if (oldCategoria && newCategoria) {
-                    oldCategoria.produtos = oldCategoria.produtos.filter(item => item !== produto._id)
+                    oldCategoria.produtos = oldCategoria.produtos.filter(item => item.toString() !== produto._id.toString())
                     newCategoria.produtos.push(produto._id)
                     produto.categoria = categoria
                     await oldCategoria.save()
@@ -125,7 +127,7 @@ class ProdutoController {
         try {
             const produtos = await Produto.paginate(
                 { loja: req.query.loja },
-                { offset, limit, sort: getSort(req.query.sortType) }
+                { offset, limit, sort: getSort(req.query.sortType), populate: ['categoria'] }
             )
             return res.send({ produtos })
         } catch (error) {
@@ -140,7 +142,7 @@ class ProdutoController {
         try {
             const produtos = await Produto.paginate(
                 { loja: req.query.loja, disponibilidade: true },
-                { offset, limit, sort: getSort(req.query.sortType) }
+                { offset, limit, sort: getSort(req.query.sortType), populate: ['categoria'] }
             )
             return res.send({ produtos })
         } catch (error) {
@@ -163,7 +165,7 @@ class ProdutoController {
                         { "sku": { $regex: search } },
                     ]
                 },
-                { offset, limit, sort: getSort(req.query.sortType) }
+                { offset, limit, sort: getSort(req.query.sortType), populate: ['categoria'] }
             )
             return res.send({ produtos })
         } catch (error) {
