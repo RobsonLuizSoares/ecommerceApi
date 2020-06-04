@@ -20,7 +20,8 @@ const UsuarioValidation = {
         body: {
             nome: Joi.string().optional(),
             email: Joi.string().email().optional(),
-            password: Joi.string().optional()
+            password: Joi.string().optional(),
+            oldPassword: Joi.string().optional()
         }
     },
     login: {

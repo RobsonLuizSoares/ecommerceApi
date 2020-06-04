@@ -52,7 +52,14 @@ class UsuarioController {
             if (!usuario) return res.status(401).json({ errors: "Usuário não registrado" })
             if (typeof nome !== "undefined") usuario.nome = nome
             if (typeof email !== "undefined") usuario.email = email
-            if (typeof password !== "undefined") usuario.setSenha(password)
+            /* if (typeof password !== "undefined") usuario.setSenha(password) */
+            if (typeof password !== "undefined") {
+                if (usuario.validarSenha(oldPassword)) {
+                    usuario.setSenha(password);
+                } else {
+                    return res.status(401).json({ errors: "Senha atual incorreta." });
+                }
+            }
 
             return usuario.save().then(() => {
                 return res.json({ usuario: usuario.enviarAuthJSON() })
